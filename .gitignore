@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.env
+*.log
+data/logs/
+data/sample_flights/*.csv
+rocket_software/ground_station/assets/Cesium.js
+rocket_software/ground_station/assets/widgets.css
+rocket_software/ground_station/assets/qwebchannel.js
