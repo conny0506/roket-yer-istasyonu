@@ -1,0 +1,11 @@
+numpy>=1.24.0
+scipy>=1.10.0
+pandas>=2.0.0
+matplotlib>=3.7.0
+PyQt6>=6.5.0
+PyQt6-WebEngine>=6.5.0
+pyqtgraph>=0.13.0
+pyserial>=3.5
+pytest>=7.0.0
+rocketpy>=1.0.0
+ambiance>=1.2.0
