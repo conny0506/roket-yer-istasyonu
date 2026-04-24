@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"/>
+<title>Roket 3D Harita</title>
+<script src="Cesium.js"></script>
+<link href="widgets.css" rel="stylesheet"/>
+<script src="qwebchannel.js"></script>
+<style>
+  html, body, #cesiumContainer { width:100%; height:100%; margin:0; padding:0; overflow:hidden; background:#000; }
+  #overlay {
+    position:absolute; top:8px; right:8px; z-index:999;
+    background:rgba(0,0,0,0.75); color:#eee;
+    padding:6px 12px; border-radius:6px;
+    font-family:monospace; font-size:12px;
+    pointer-events:none;
+  }
+  #hint {
+    position:absolute; bottom:32px; left:50%; transform:translateX(-50%);
+    background:rgba(0,120,255,0.75); color:#fff;
+    padding:5px 14px; border-radius:12px;
+    font-size:12px; pointer-events:none;
+    transition:opacity 0.5s;
+  }
+</style>
+</head>
+<body>
+<div id="cesiumContainer"></div>
+<div id="overlay">Bekleniyor...</div>
+<div id="hint">Haritaya tıkla → Hedef seç (fırlatma: Ankara)</div>
+
+<script>
+if (typeof Cesium === 'undefined') {
+  document.body.innerHTML = '<div style="color:#f88;font-family:monospace;padding:20px">CesiumJS yüklenemedi.</div>';
+  throw new Error('CesiumJS not loaded');
+}
+
+window.onerror = function(msg, src, line) {
+  document.getElementById('overlay').textContent = 'JS Hata: ' + msg;
+};
+
+Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5YjA2ZjkyMC1hMDM3LTQ5YjEtOTAzMi02OWEzNDdhYWIyNjMiLCJpZCI6NDMxMjkwLCJpc3MiOiJodHRwczovL2lvbi5jZXNpdW0uY29tIiwiYXVkIjoidW5kZWZpbmVkX2RlZmF1bHQiLCJpYXQiOjE3Nzg3MTE2MTZ9.n-fgPyWoC7vVnO9xMgRqbVMIGJmC-EOSPIYwExD-qHE';
+
+var viewer;
+try {
+var viewer = new Cesium.Viewer('cesiumContainer', {
+  terrain: Cesium.Terrain.fromWorldTerrain(),
+  animation: false,
+  timeline: false,
+  baseLayerPicker: false,
+  fullscreenButton: false,
+  homeButton: false,
+  navigationHelpButton: false,
+  sceneModePicker: false,
+  geocoder: false,
+  infoBox: false,
+  selectionIndicator: false,
+});
+
+} catch(e) {
+  document.getElementById('overlay').textContent = 'Viewer hatası: ' + e.message;
+}
+
+viewer.scene.globe.enableLighting = true;
+viewer.scene.skyAtmosphere.show = true;
+
+// Başlangıç görünümü — Ankara, fırlatma marker'ı kalıcı
+viewer.camera.flyTo({
+  destination: Cesium.Cartesian3.fromDegrees(32.8541, 39.9201, 12000),
+  orientation: { pitch: Cesium.Math.toRadians(-45) },
+  duration: 1.5
+});
+
+// --- Durum değişkenleri ---
+var trailPositions = [];
+var rocketEntity = null;
+var launchEntity = null;
+var targetEntity = null;
+var targetLineEntity = null;
+var trailEntity = null;
+var pybridge = null;
+var launchPos = null;
+var targetPos = null;
+
+// QWebChannel kurulumu
+if (typeof QWebChannel !== 'undefined') {
+  new QWebChannel(qt.webChannelTransport, function(channel) {
+    pybridge = channel.objects.pybridge;
+  });
+}
+
+// --- Trail entity (CallbackProperty ile canlı güncelleme) ---
+trailEntity = viewer.entities.add({
+  polyline: {
+    positions: new Cesium.CallbackProperty(function() {
+      return trailPositions.length > 1 ? trailPositions : [];
+    }, false),
+    width: 3,
+    material: new Cesium.PolylineGlowMaterialProperty({
+      glowPower: 0.25,
+      color: Cesium.Color.LIME
+    }),
+    clampToGround: false
+  }
+});
+
+// Emoji → canvas → data URL (CesiumJS billboard için)
+function makeEmojiCanvas(emoji, size) {
+  var canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  var ctx = canvas.getContext('2d');
+  ctx.font = Math.round(size * 0.75) + 'px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(emoji, size / 2, size / 2);
+  return canvas.toDataURL();
+}
+var _rocketImg = makeEmojiCanvas('🚀', 48);
+
+// --- Roket entity ---
+function ensureRocketEntity(lat, lon, alt) {
+  var pos = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
+  if (!rocketEntity) {
+    rocketEntity = viewer.entities.add({
+      position: pos,
+      billboard: {
+        image: _rocketImg,
+        scale: 0.7,
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY
+      },
+      label: {
+        text: '',
+        font: '11px monospace',
+        fillColor: Cesium.Color.WHITE,
+        outlineColor: Cesium.Color.BLACK,
+        outlineWidth: 2,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        pixelOffset: new Cesium.Cartesian2(0, -28),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        showBackground: true,
+        backgroundColor: new Cesium.Color(0, 0, 0, 0.6)
+      }
+    });
+    // İlk pakette kamerayı rokete kilitle
+    viewer.trackedEntity = rocketEntity;
+  } else {
+    rocketEntity.position = pos;
+  }
+  return rocketEntity;
+}
+
+// --- Fırlatma marker (yeşil) ---
+function setLaunchMarkerInternal(lat, lon) {
+  var alt = 1000;
+  launchPos = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
+  if (!launchEntity) {
+    launchEntity = viewer.entities.add({
+      position: launchPos,
+      point: { pixelSize: 12, color: Cesium.Color.LIME, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
+      label: {
+        text: 'Fırlatma',
+        font: '11px sans-serif',
+        fillColor: Cesium.Color.LIME,
+        pixelOffset: new Cesium.Cartesian2(0, -18),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY
+      }
+    });
+  } else {
+    launchEntity.position = launchPos;
+  }
+  updateTargetLine();
+}
+
+// --- Hedef marker (kırmızı) ---
+function setTargetMarkerInternal(lat, lon) {
+  var alt = 1000;
+  targetPos = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
+  if (!targetEntity) {
+    targetEntity = viewer.entities.add({
+      position: targetPos,
+      point: { pixelSize: 12, color: Cesium.Color.RED, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
+      label: {
+        text: 'Hedef',
+        font: '11px sans-serif',
+        fillColor: Cesium.Color.RED,
+        pixelOffset: new Cesium.Cartesian2(0, -18),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY
+      }
+    });
+  } else {
+    targetEntity.position = targetPos;
+  }
+  updateTargetLine();
+}
+
+// --- Fırlatma → Hedef çizgisi (sarı kesik) ---
+function updateTargetLine() {
+  if (!launchPos || !targetPos) return;
+  if (targetLineEntity) viewer.entities.remove(targetLineEntity);
+  targetLineEntity = viewer.entities.add({
+    polyline: {
+      positions: [launchPos, targetPos],
+      width: 2,
+      material: new Cesium.PolylineDashMaterialProperty({
+        color: Cesium.Color.YELLOW,
+        dashLength: 16
+      }),
+      clampToGround: false
+    }
+  });
+}
+
+// --- Haritaya tıklama → fırlatma noktası ---
+var handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+handler.setInputAction(function(click) {
+  var ray = viewer.camera.getPickRay(click.position);
+  var cartesian = viewer.scene.globe.pick(ray, viewer.scene);
+  if (!cartesian) return;
+  var carto = Cesium.Cartographic.fromCartesian(cartesian);
+  var lat = Cesium.Math.toDegrees(carto.latitude);
+  var lon = Cesium.Math.toDegrees(carto.longitude);
+
+  setTargetMarkerInternal(lat, lon);
+  document.getElementById('hint').style.opacity = '0';
+  document.getElementById('overlay').textContent =
+    'Hedef: ' + lat.toFixed(4) + ', ' + lon.toFixed(4);
+
+  if (pybridge) {
+    pybridge.setLaunchPoint(lat, lon);   // Python tarafı bunu hedef olarak yorumlar
+  }
+}, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+// --- Public API (Python → JS) ---
+window.updateMarker = function(lat, lon, alt) {
+  alt = alt || 1000;
+  ensureRocketEntity(lat, lon, alt);
+  document.getElementById('overlay').textContent =
+    lat.toFixed(4) + ', ' + lon.toFixed(4) + ' | ' + Math.round(alt) + ' m';
+};
+
+window.addTrailPoint = function(lat, lon, alt) {
+  alt = alt || 1000;
+  trailPositions.push(Cesium.Cartesian3.fromDegrees(lon, lat, alt));
+};
+
+window.setFlightState = function(state) {
+  var colors = {
+    'IDLE': Cesium.Color.GRAY,
+    'ARMED': new Cesium.Color(0.3, 0.4, 1.0),
+    'LAUNCH_DETECT': Cesium.Color.ORANGE,
+    'ASCENT': Cesium.Color.LIME,
+    'APOGEE': Cesium.Color.RED,
+    'DESCENT': new Cesium.Color(1.0, 0.5, 0.3),
+    'LANDED': new Cesium.Color(0.5, 0.3, 0.1),
+    'ERROR': Cesium.Color.MAGENTA
+  };
+  var c = colors[state] || Cesium.Color.WHITE;
+  if (trailEntity && trailEntity.polyline) {
+    trailEntity.polyline.material = new Cesium.PolylineGlowMaterialProperty({
+      glowPower: 0.25,
+      color: c
+    });
+  }
+  if (rocketEntity && rocketEntity.label) {
+    rocketEntity.label.text = state;
+    rocketEntity.label.fillColor = c;
+  }
+};
+
+window.setApogee = function(lat, lon, alt) {
+  viewer.entities.add({
+    position: Cesium.Cartesian3.fromDegrees(lon, lat, alt),
+    point: { pixelSize: 8, color: Cesium.Color.RED, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
+    label: {
+      text: 'Apogee\n' + Math.round(alt) + ' m',
+      font: '11px monospace',
+      fillColor: Cesium.Color.RED,
+      pixelOffset: new Cesium.Cartesian2(0, -20),
+      disableDepthTestDistance: Number.POSITIVE_INFINITY
+    }
+  });
+};
+
+window.resetMap = function() {
+  trailPositions = [];
+  viewer.trackedEntity = undefined;
+  if (rocketEntity)  { viewer.entities.remove(rocketEntity); rocketEntity = null; }
+  // trail entity'yi koru, sadece pozisyonları temizle
+  document.getElementById('overlay').textContent = 'Bekleniyor...';
+  document.getElementById('hint').style.opacity = '1';
+};
+
+window.setLaunchMarker = function(lat, lon) {
+  setLaunchMarkerInternal(lat, lon);
+};
+
+window.setTargetMarker = function(lat, lon) {
+  setTargetMarkerInternal(lat, lon);
+};
+
+window.flyToLaunch = function(lat, lon) {
+  viewer.camera.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(lon, lat, 8000),
+    orientation: { pitch: Cesium.Math.toRadians(-40) },
+    duration: 1.5
+  });
+};
+
+// Hem fırlatma hem hedefi (ve yörünge'yi) gösterecek şekilde uzaklaş
+window.flyToBounds = function(lat1, lon1, lat2, lon2) {
+  var midLat = (lat1 + lat2) / 2;
+  var midLon = (lon1 + lon2) / 2;
+  var R = 6371000;
+  var dLat = (lat2 - lat1) * Math.PI / 180;
+  var dLon = (lon2 - lon1) * Math.PI / 180;
+  var lat1r = lat1 * Math.PI / 180;
+  var lat2r = lat2 * Math.PI / 180;
+  var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(lat1r) * Math.cos(lat2r) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  var dist = 2 * R * Math.asin(Math.sqrt(a));
+  // Menzil dışı hedeflerin kamerayı stratosfera taşımasını önle
+  var altitude = Math.min(Math.max(dist * 1.5, 5000), 12000);
+  viewer.camera.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(midLon, midLat, altitude),
+    orientation: { pitch: Cesium.Math.toRadians(-55) },
+    duration: 1.5
+  });
+};
+</script>
+</body>
+</html>
