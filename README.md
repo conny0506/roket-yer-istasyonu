@@ -10,6 +10,8 @@ EuRoC tarzı bir roket yarışması için geliştirdiğim uçuş simülasyonu, l
 
 ## 📸 Ekran Görüntüsü
 
+![Roket Yer İstasyonu](docs/screenshot.jpg)
+
 > Gerçek zamanlı telemetri paneli, irtifa/hız grafiği ve CesiumJS 3D harita
 
 ---
