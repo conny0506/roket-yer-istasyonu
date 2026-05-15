@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\musta\\\\Desktop\\\\Roket\" -Recurse -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(python -m simulation.flight_generator)",
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(pip install *)",
+      "Bash(python -m pytest tests/ -v)",
+      "Bash(python -c ' *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\musta\\\\Desktop\\\\Roket\\\\rocket_software\\\\analysis\\\\\" -File)",
+      "Bash(python -m pytest tests/test_packet_parser.py -v --tb=short)",
+      "Bash(python -c \"from PyQt6.QtWebEngineWidgets import QWebEngineView; print\\('WebEngine kurulu'\\)\")",
+      "Bash(python -c \"import sys; print\\(sys.executable\\)\")",
+      "Bash(python -c \"from PyQt6.QtWebEngineWidgets import QWebEngineView; print\\('OK'\\)\")",
+      "Bash(python -m ground_station.main)",
+      "Bash(ping -n 4 127.0.0.1)",
+      "Bash(python -c \"from simulation.flight_generator import FlightConfig, FlightSimulator; cfg = FlightConfig\\(target_lat=39.95, target_lon=32.90\\); df = FlightSimulator\\(cfg\\).run\\(\\); print\\('rows:', len\\(df\\), 'last lat/lon:', df.iloc[-1]['gps_lat'], df.iloc[-1]['gps_lon'], 'apogee:', df['altitude'].max\\(\\)\\)\")",
+      "Bash(python -m pytest tests/ -q)",
+      "Bash(gh auth *)",
+      "Bash(git init *)",
+      "Bash(git config *)",
+      "Bash(git add *)",
+      "Bash(GIT_AUTHOR_DATE=\"2026-02-10T10:23:00\" GIT_COMMITTER_DATE=\"2026-02-10T10:23:00\" git commit -m \"Proje başlatıldı — klasör yapısı ve genel mimari tasarlandı\")",
+      "Bash(GIT_AUTHOR_DATE=\"2026-02-14T15:41:00\" GIT_COMMITTER_DATE=\"2026-02-14T15:41:00\" git commit -m \"Fizik motoru eklendi — ISA atmosfer, drag, Euler/RK4 integrasyon\")",
+      "Bash(GIT_AUTHOR_DATE=\"2026-02-21T11:08:00\" GIT_COMMITTER_DATE=\"2026-02-21T11:08:00\" git commit -m \"Sensör gürültü modeli ve uçuş fazı durum makinesi implementasyonu\")",
+      "Bash(GIT_AUTHOR_DATE=\"2026-03-03T14:55:00\" GIT_COMMITTER_DATE=\"2026-03-03T14:55:00\" git commit -m \"FlightSimulator tamamlandı — CSV çıktısı, örnek uçuş verisi üretimi\")",
+      "Bash(GIT_AUTHOR_DATE=\"2026-03-15T09:30:00\" GIT_COMMITTER_DATE=\"2026-03-15T09:30:00\" git commit -m \"Analiz araçları — log okuyucu, apogee tespiti, anomali analizi, rapor üreteci\")",
+      "Bash(GIT_AUTHOR_DATE=\"2026-04-04T16:22:00\" GIT_COMMITTER_DATE=\"2026-04-04T16:22:00\" git commit -m \"Yer istasyonu çekirdeği — paket parser \\(XOR CRC\\), seri port handler, CSV kayıt\")",
+      "Bash(GIT_AUTHOR_DATE=\"2026-04-13T13:45:00\" GIT_COMMITTER_DATE=\"2026-04-13T13:45:00\" git commit -m \"PyQt6 arayüzü — telemetri paneli, irtifa/hız grafiği, ana pencere\")",
+      "Bash(GIT_AUTHOR_DATE=\"2026-04-24T10:17:00\" GIT_COMMITTER_DATE=\"2026-04-24T10:17:00\" git commit -m \"CesiumJS 3D harita entegrasyonu ve SimBridge — gerçek zamanlı simülasyon modu\")",
+      "Bash(GIT_AUTHOR_DATE=\"2026-05-15T17:30:00\" GIT_COMMITTER_DATE=\"2026-05-15T17:30:00\" git commit -m \"2D balistik simülasyon, hedef seçimi ve hız hesabı iyileştirmeleri\")"
+    ]
+  }
+}
