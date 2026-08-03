@@ -2,6 +2,7 @@
 
 EuRoC tarzı bir roket yarışması için geliştirdiğim uçuş simülasyonu, log analizi ve gerçek zamanlı yer istasyonu yazılımı.
 
+[![CI](https://github.com/mustaffadnC/roket-yer-istasyonu/actions/workflows/ci.yml/badge.svg)](https://github.com/mustaffadnC/roket-yer-istasyonu/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python&logoColor=white)
 ![PyQt6](https://img.shields.io/badge/PyQt6-6.5+-green?logo=qt&logoColor=white)
 ![License](https://img.shields.io/badge/Lisans-MIT-orange)
@@ -72,7 +73,7 @@ $ROCKET,<ts_ms>,<state>,<altitude>,<velocity>,<accel>,<lat>,<lon>,<battery>,<sta
 **Gereksinimler:** Python 3.11+
 
 ```bash
-git clone https://github.com/conny0506/roket-yer-istasyonu.git
+git clone https://github.com/mustaffadnC/roket-yer-istasyonu.git
 cd roket-yer-istasyonu/rocket_software
 pip install -r requirements.txt
 ```
